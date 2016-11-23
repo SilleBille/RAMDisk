@@ -138,26 +138,31 @@ static int ramdisk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 {
 	(void) offset;
 	(void) fi;
-
+	char *tempName;
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	printNodes(head);
 	ramNode *temp = head;
-	printf("The nodes are: %s   %s",  basename(temp->next->name), basename(temp->next->next->name));
-	filler(buf, basename(temp->next->name), NULL, 0);
-	filler(buf, basename(temp->next->next->name), NULL, 0);
-	/*while (temp != NULL) {
-		printf("MKD-path name: %s Dir name is: %s\n", temp->name, dirname(temp->name));
-		if(strcmp(path, temp->name) != 0) {
-			if(strcmp(path, dirname(temp->name)) == 0) {
-				printf("found this: %s\n", temp->name);
-				filler(buf, basename(temp->name), NULL, 0);
+	/*filler(buf, basename(temp->next->name), NULL, 0);
+	filler(buf, basename(temp->next->next->name), NULL, 0);*/
+	while (temp != NULL) {
+		tempName = (char *) malloc(temp->size);
+		strcpy(tempName, temp->name);
+
+		char *parentName = dirname(tempName);
+		printf("parent name of %s is %s\n", temp->name, parentName);
+		if(strcmp(temp->name, path) != 0) {
+			if(strcmp(parentName, path) == 0) {
+				strcpy(tempName, temp->name);
+				printf("This is to be added! %s\n", basename(tempName));
+				filler(buf, basename(tempName), NULL, 0);
 			}
 		}
-		temp = temp->next;
-	}*/
 
+		temp = temp->next;
+	}
+
+	printNodes(head);
 
 	return 0;
 }
