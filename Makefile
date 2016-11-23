@@ -1,8 +1,8 @@
 
 CC=gcc
-CFLAGS= -g $(PKGFLAGS)
+CFLAGS= -g $(PKGFLAGS) -lm
 PKGFLAGS=`pkg-config fuse --cflags --libs`
-OBJ= ramdisk.o
+OBJ= ramdisk.o ramnode.o
 
 all: ramdisk
 

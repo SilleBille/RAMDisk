@@ -8,19 +8,26 @@
 #ifndef RAMNODE_H_
 #define RAMNODE_H_
 
+#define MAX_FILE_NAME_SIZE 256
+#define BLOCK_SIZE 1024
+
 #include<stdlib.h>
 #include<stdio.h>
 #include<sys/types.h>
 
+#include "test.h"
 
 typedef enum d_type {
-	DIR_TYPE,
-	FILE_TYPE
+	DIR_TYPE, FILE_TYPE
 } f_type;
 
-/* To maintain the file or directory information */
-struct _fileMetaTable {
-	char *name;
+/* To maintain the file or directory meta-data
+ * Not worrying about access controls
+ */
+typedef struct _fileMetaTable {
+	char name[MAX_FILE_NAME_SIZE]; // This acts as the key
+
+	// These are the values
 	f_type type;
 	mode_t mode;
 
@@ -30,24 +37,27 @@ struct _fileMetaTable {
 	time_t mtime;
 	time_t ctime;
 
-	unsigned int startBlock;
+	// The pointer to memory blocks
+	struct _memoryBlocks *memHead;
 
-	struct _fileMetaTable *parent;
+	// Pointer to next block
+	struct _fileMetaTable *next;
 
-
-};
-typedef struct _fileMetaTable *ramNode;
+} ramNode;
 
 /* To maintain the blocks allocated
  * The block size considered is 1KB
  *
  */
-struct _memoryBlocks {
-	char data[1020];
+typedef struct _memoryBlocks {
+	char data[BLOCK_SIZE];
 	struct _memoryBlocks *next;
+} memBlock;
 
-};
-typedef struct _memoryBlocks *memBlock;
 
+ramNode* searchNode(ramNode *head, const char *name);
+void addNode(ramNode *head, ramNode *node);
+void printNodes(ramNode *head);
+int computeSize(memBlock *mHead);
 
 #endif /* RAMNODE_H_ */

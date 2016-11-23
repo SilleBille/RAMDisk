@@ -1,241 +1,218 @@
 /*
- * ramdisk.c
- *
- *  Created on: Nov 12, 2016
- *      Author: dinesh
- */
+  FUSE: Filesystem in Userspace
+  Copyright (C) 2001-2007  Miklos Szeredi <miklos@szeredi.hu>
 
-// Added because of compatibility issues in fust_main()
+  This program can be distributed under the terms of the GNU GPL.
+  See the file COPYING.
+
+  gcc -Wall hello.c `pkg-config fuse --cflags --libs` -o hello
+*/
+
 #define FUSE_USE_VERSION 26
 
 #include <fuse.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
 #include <string.h>
-#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <libgen.h>
 
-#include"ramnode.h"
+#include "ramnode.h"
 
-static int ramdisk_getattr(const char *path, struct stat *stbuf) {
+static const char *hello_str = "Hello World!\n";
+static const char *hello_path = "/hello";
+
+static const char *bye_str = "Bye world!\n";
+static const char *bye_path = "/bye";
+
+ramNode *head;
+void testContents() {
+	int numberOfBlocks;
+	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
+	strcpy(n->name, hello_path);
+	n->type = FILE_TYPE;
+	n->mode = 0666;
+
+	n->atime = time(NULL);
+	n->ctime = time(NULL);
+	n->mtime = time(NULL);
+
+
+	numberOfBlocks = strlen(hello_str)/BLOCK_SIZE;
+	if(strlen(hello_str)%BLOCK_SIZE != 0) {
+		numberOfBlocks++;
+	}
+
+	printf("Number of blocks allocated: %d", numberOfBlocks);
+
+
+	memBlock *mem = (memBlock *) malloc(sizeof(memBlock) * numberOfBlocks);
+	strcpy(mem->data, hello_str);
+	mem->next = NULL;
+
+
+	n->memHead = mem;
+	n->size = computeSize(mem);
+
+	n->next = NULL;
+
+	addNode(head, n);
+
+
+
+	ramNode *m = (ramNode *) malloc(sizeof(ramNode));
+	strcpy(m->name, bye_path);
+	m->type = FILE_TYPE;
+	m->mode = 0666;
+	m->atime = time(NULL);
+	m->ctime = time(NULL);
+	m->mtime = time(NULL);
+
+
+	numberOfBlocks = strlen(bye_str)/BLOCK_SIZE;
+	if(strlen(bye_str)%BLOCK_SIZE != 0) {
+		numberOfBlocks++;
+	}
+
+	printf("Number of blocks allocated for BYE: %d", numberOfBlocks);
+
+
+	memBlock *mem1 = (memBlock *) malloc(sizeof(memBlock) * numberOfBlocks);
+	strcpy(mem1->data, bye_str);
+	mem1->next = NULL;
+
+
+	m->memHead = mem1;
+	m->size = computeSize(mem1);
+
+	m->next = NULL;
+
+	addNode(head, m);
+
+
+}
+void initNodes() {
+
+	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
+	strcpy(n->name, "/");
+	n->type = DIR_TYPE;
+	n->mode = 0777;
+
+	n->atime = time(NULL);
+	n->ctime = time(NULL);
+	n->mtime = time(NULL);
+
+	n->memHead = NULL;
+	n->next = NULL;
+
+	head = n;
+	printf("MKD The head is: %s\n", head->name);
+
+	testContents();
+}
+
+
+static int ramdisk_getattr(const char *path, struct stat *stbuf)
+{
 	int res = 0;
-	printf("MKD-getattr\n");
+
 	memset(stbuf, 0, sizeof(struct stat));
-	res = stat(path, stbuf);
+
+	ramNode *temp = searchNode(head, path);
+
+	if (temp != NULL && temp->type == DIR_TYPE) {
+		stbuf->st_mode = S_IFDIR | temp->mode;
+		stbuf->st_nlink = 2;
+	} else if (temp != NULL && temp->type == FILE_TYPE) {
+		stbuf->st_mode = S_IFREG | temp->mode;
+		stbuf->st_nlink = 1;
+		stbuf->st_size = temp->size;
+	} else
+		res = -ENOENT;
 
 	return res;
 }
 
 static int ramdisk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-		off_t offset, struct fuse_file_info *fi) {
-	DIR *dp;
-	struct dirent *de;
-	printf("MKD-readdir\n");
-	dp = opendir(path);
-	if (dp == NULL)
-		return errno;
-	else {
-		/*while ((de = readdir(dp)) != NULL) {
-		 struct stat st;
-		 memset(&st, 0, sizeof(st));
-		 st.st_ino = de->d_ino;
-		 st.st_mode = de->d_type << 12;
-		 if (filler(buf, de->d_name, &st, offset))    // MKD - Might need to change
-		 break;
-		 }*/
-		filler(buf, ".", NULL, 0);
-		filler(buf, "..", NULL, 0);
-	}
+			 off_t offset, struct fuse_file_info *fi)
+{
+	(void) offset;
+	(void) fi;
+
+	filler(buf, ".", NULL, 0);
+	filler(buf, "..", NULL, 0);
+
+	printNodes(head);
+	ramNode *temp = head;
+	printf("The nodes are: %s   %s",  basename(temp->next->name), basename(temp->next->next->name));
+	filler(buf, basename(temp->next->name), NULL, 0);
+	filler(buf, basename(temp->next->next->name), NULL, 0);
+	/*while (temp != NULL) {
+		printf("MKD-path name: %s Dir name is: %s\n", temp->name, dirname(temp->name));
+		if(strcmp(path, temp->name) != 0) {
+			if(strcmp(path, dirname(temp->name)) == 0) {
+				printf("found this: %s\n", temp->name);
+				filler(buf, basename(temp->name), NULL, 0);
+			}
+		}
+		temp = temp->next;
+	}*/
+
+
 	return 0;
 }
 
-static int ramdisk_mkdir(const char *path, mode_t mode) {
-	// int res;
-	printf("MKD-mkdir\n");
-	/*res = mkdir(path, mode);
-	if (res == -1)
-		return -errno;
-	else
-		return 0;*/
-	return 0;
-}
-static void* ramdisk_init(struct fuse_conn_info *conn) {
-	printf("MKD-init\n");
-	return NULL;
-}
+static int ramdisk_open(const char *path, struct fuse_file_info *fi)
+{
+	ramNode *temp = searchNode(head, path);
+	if (temp == NULL)
+		return -ENOENT;
 
+	if ((fi->flags & 3) != O_RDONLY)
+		return -EACCES;
 
-static void ramdisk_destroy(void* private_data) {
-	printf("MKD-destroy\n");
-}
-
-static int ramdisk_fgetattr(const char* path, struct stat* stbuf) {
-	printf("MKD-fgetattr\n");
 	return 0;
 }
 
-static int ramdisk_access(const char* path, int mask) {
-	printf("MKD-Access\n");
-	return 0;
+static int ramdisk_read(const char *path, char *buf, size_t size, off_t offset,
+		      struct fuse_file_info *fi)
+{
+	size_t len;
+	(void) fi;
+
+	ramNode *temp = searchNode(head, path);
+
+	if (temp == NULL)
+		return -ENOENT;
+	char *contents = (char *)malloc(temp->size);
+	strcpy(contents, "");
+
+	len = temp->size;
+	if (offset < len) {
+		if (offset + size > len)
+			size = len - offset;
+		memBlock *m = temp->memHead;
+
+		while(m != NULL) {
+			strcat(contents, m->data);
+			m = m->next;
+		}
+		memcpy(buf, contents + offset, size);
+	} else
+		size = 0;
+
+	return size;
 }
 
-static int ramdisk_unlink(const char* path){
-	printf("MKD-Unlink\n");
-	return 0;
-}
-
-static int ramdisk_rmdir(const char* path) {
-	printf("MKD-remove DIR\n");
-	return 0;
-}
-
-static int ramdisk_rename(const char* from, const char* to) {
-	printf("MKD-Rename \n");
-	return 0;
-}
-
-static int ramdisk_chmod(const char* path, mode_t mode) {
-	printf("MKD-chmod\n");
-	return 0;
-}
-
-static int ramdisk_chown(const char* path, uid_t uid, gid_t gid) {
-	printf("MKD-CHown\n");
-	return 0;
-}
-
-static int ramdisk_truncate(const char* path, off_t size) {
-	printf("MKD-truncate\n");
-	return 0;
-}
-
-static int ramdisk_ftruncate(const char* path, off_t size) {
-	printf("MKD-ftruncate\n");
-	return 0;
-}
-
-
-static int ramdisk_utimens(const char* path, const struct timespec ts[2]) {
-	printf("MKD-utimens\n");
-	return 0;
-}
-
-static int ramdisk_create(const char * path, mode_t mode, struct fuse_file_info *fi) {
-	printf("MKD-create\n");
-	return 0;
-}
-
-static int ramdisk_open(const char* path, struct fuse_file_info* fi) {
-	printf("MKD-open\n");
-	return 0;
-}
-
-static int ramdisk_read(const char* path, char *buf, size_t size, off_t offset, struct fuse_file_info* fi) {
-	printf("MKD-read\n");
-	return 0;
-}
-
-static int ramdisk_write(const char* path, char *buf, size_t size, off_t offset, struct fuse_file_info* fi) {
-	printf("MKD-write\n");
-	return 0;
-}
-
-static int ramdisk_statfs(const char* path, struct statvfs* stbuf) {
-	printf("MKD-statfs\n");
-	return 0;
-}
-
-static int ramdisk_release(const char* path, struct fuse_file_info *fi) {
-	printf("MKD-release\n");
-	return 0;
-}
-
-static int ramdisk_opendir(const char* path, struct fuse_file_info* fi) {
-	printf("MKD-opendir\n");
-	return 0;
-}
-
-static int ramdisk_releasedir(const char* path, struct fuse_file_info *fi) {
-	printf("MKD-release dir\n");
-	return 0;
-}
-
-static int ramdisk_fsync(const char* path, int isdatasync, struct fuse_file_info* fi) {
-	printf("MKD-fsync\n");
-	return 0;
-}
-
-static int ramdisk_flush(const char* path, struct fuse_file_info* fi) {
-	printf("MKD-flush\n");
-	return 0;
-}
-
-static int ramdisk_fsyncdir(const char* path, int isdatasync, struct fuse_file_info* fi) {
-	printf("MKD-fsyncdir\n");
-	return 0;
-}
-
-static int ramdisk_lock(const char* path, struct fuse_file_info* fi, int cmd, struct flock* locks) {
-	printf("MKD-lock\n");
-	return 0;
-}
-
-static int ramdisk_bmap(const char* path, size_t blocksize, uint64_t* blockno) {
-	printf("MKD-bmap\n");
-	return 0;
-}
-
-static int ramdisk_ioctl(const char* path, int cmd, void* arg, struct fuse_file_info* fi, unsigned int flags, void* data) {
-	printf("MKD-ioctl\n");
-	return 0;
-}
-
-static int ramdisk_poll(const char* path, struct fuse_file_info* fi, struct fuse_pollhandle* ph, unsigned* reventsp) {
-	printf("MKD-poll\n");
-	return 0;
-}
-static struct fuse_operations ramdisk_operations = {
-    .init        = ramdisk_init,
-    .destroy     = ramdisk_destroy,
-    .getattr     = ramdisk_getattr,
-    .fgetattr    = ramdisk_fgetattr,
-    .access      = ramdisk_access,
-    .readdir     = ramdisk_readdir,
-    .mkdir       = ramdisk_mkdir,
-    .unlink      = ramdisk_unlink,
-    .rmdir       = ramdisk_rmdir,
-    .rename      = ramdisk_rename,
-    .chmod       = ramdisk_chmod,
-    .chown       = ramdisk_chown,
-    .truncate    = ramdisk_truncate,
-    .ftruncate   = ramdisk_ftruncate,
-    .utimens     = ramdisk_utimens,
-    .create      = ramdisk_create,
-    .open        = ramdisk_open,
-    .read        = ramdisk_read,
-    .write       = ramdisk_write,
-    .statfs      = ramdisk_statfs,
-    .release     = ramdisk_release,
-    .opendir     = ramdisk_opendir,
-    .releasedir  = ramdisk_releasedir,
-    .fsync       = ramdisk_fsync,
-    .flush       = ramdisk_flush,
-    .fsyncdir    = ramdisk_fsyncdir,
-    .lock        = ramdisk_lock,
-    .bmap        = ramdisk_bmap,
-    .ioctl       = ramdisk_ioctl,
-    .poll        = ramdisk_poll,
-#ifdef HAVE_SETXATTR
-    .setxattr    = ramdisk_setxattr,
-    .getxattr    = ramdisk_getxattr,
-    .listxattr   = ramdisk_listxattr,
-    .removexattr = ramdisk_removexattr,
-#endif
-    .flag_nullpath_ok = 0,                /* See below */
+static struct fuse_operations hello_oper = {
+	.getattr	= ramdisk_getattr,
+	.readdir	= ramdisk_readdir,
+	.open		= ramdisk_open,
+	.read		= ramdisk_read,
 };
 
-int main(int argc, char *argv[]) {
-
-	return fuse_main(argc, argv, &ramdisk_operations, NULL);
+int main(int argc, char *argv[])
+{
+	initNodes();
+	return fuse_main(argc, argv, &hello_oper, NULL);
 }
-
