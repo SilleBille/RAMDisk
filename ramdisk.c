@@ -106,7 +106,6 @@ void initNodes() {
 	n->next = NULL;
 
 	head = n;
-	printf("MKD The head is: %s\n", head->name);
 
 	testContents();
 }
@@ -143,18 +142,16 @@ static int ramdisk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, "..", NULL, 0);
 
 	ramNode *temp = head;
-	/*filler(buf, basename(temp->next->name), NULL, 0);
-	filler(buf, basename(temp->next->next->name), NULL, 0);*/
 	while (temp != NULL) {
 		tempName = (char *) malloc(temp->size);
 		strcpy(tempName, temp->name);
 
 		char *parentName = dirname(tempName);
-		printf("parent name of %s is %s\n", temp->name, parentName);
+		// Check whether the node and the path are same. It SHOULDN'T be
 		if(strcmp(temp->name, path) != 0) {
+			// Now check whether the parent of the file and the path are same.
 			if(strcmp(parentName, path) == 0) {
 				strcpy(tempName, temp->name);
-				printf("This is to be added! %s\n", basename(tempName));
 				filler(buf, basename(tempName), NULL, 0);
 			}
 		}
@@ -209,11 +206,41 @@ static int ramdisk_read(const char *path, char *buf, size_t size, off_t offset,
 	return size;
 }
 
+static int ramdisk_mkdir(const char *path, mode_t mode) {
+	int res = 0;
+	printf("The path where mkdir is being called: %s\n", path);
+
+	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
+	strcpy(n->name, path);
+	n->mode = mode;
+
+	n->atime = time(NULL);
+	n->ctime = time(NULL);
+	n->mtime = time(NULL);
+	n->next = NULL;
+	n->size = 0;
+	n->memHead = NULL;
+
+	addNode(head, n);
+
+	return res;
+}
+
+static int ramdisk_rmdir(const char *path) {
+	int res;
+
+	res = deleteNode(head, path);
+
+	return res;
+}
+
 static struct fuse_operations hello_oper = {
 	.getattr	= ramdisk_getattr,
 	.readdir	= ramdisk_readdir,
 	.open		= ramdisk_open,
 	.read		= ramdisk_read,
+	.mkdir 		= ramdisk_mkdir,
+	.rmdir		= ramdisk_rmdir,
 };
 
 int main(int argc, char *argv[])

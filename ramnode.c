@@ -5,6 +5,9 @@
  *      Author: dinesh
  */
 
+#include <string.h>
+#include <libgen.h>
+
 #include "ramnode.h"
 #include "test.h"
 
@@ -35,7 +38,7 @@ ramNode* searchNode(ramNode *head, const char *name) {
 void printNodes(ramNode *head) {
 	printf("MKD: Nodes are: ");
 	ramNode *temp = head;
-	while(temp != NULL) {
+	while (temp != NULL) {
 		printf(" %s \n", temp->name);
 		temp = temp->next;
 	}
@@ -44,7 +47,7 @@ void printNodes(ramNode *head) {
 int computeSize(memBlock *mHead) {
 	memBlock *t = mHead;
 	int sizeOfFile = 0;
-	while(t != NULL) {
+	while (t != NULL) {
 		sizeOfFile += strlen(t->data);
 		t = t->next;
 	}
@@ -52,5 +55,33 @@ int computeSize(memBlock *mHead) {
 	return sizeOfFile;
 }
 
+int deleteNode(ramNode *head, const char *path) {
+	ramNode *temp = head;
+	ramNode *prev = temp;
+	ramNode *foundTemp = NULL;
+	ramNode *foundPrev = NULL;
+	char *tempName;
+	while (temp != NULL) {
+		tempName = (char *) malloc(temp->size);
+		strcpy(tempName, temp->name);
 
+		char *dirName = dirname(tempName);
+		// Check whether it has any children, If so, throw an error
+		if (strcmp(dirName, path) == 0)
+			return -ENOTEMPTY;
+		else if(strcmp(temp->name, path) == 0 ) {
+			printf("deleting %s\n", temp->name);
+			foundTemp = temp;
+			foundPrev = prev;
+		}
+		prev = temp;
+		temp = temp->next;
+	}
+	if(foundTemp == NULL)
+		return -ENOENT;
+	else {
+		foundPrev->next = foundTemp->next;
+		return 0;
+	}
+}
 

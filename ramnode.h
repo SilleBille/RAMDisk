@@ -59,5 +59,6 @@ ramNode* searchNode(ramNode *head, const char *name);
 void addNode(ramNode *head, ramNode *node);
 void printNodes(ramNode *head);
 int computeSize(memBlock *mHead);
+int deleteNode(ramNode *head, const char *path);
 
 #endif /* RAMNODE_H_ */
