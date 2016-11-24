@@ -37,7 +37,7 @@ void testContents() {
 	n->ctime = time(NULL);
 	n->mtime = time(NULL);
 
-
+	printf("Time is: %lld\n", (long)(long)time(NULL));
 	numberOfBlocks = strlen(hello_str)/BLOCK_SIZE;
 	if(strlen(hello_str)%BLOCK_SIZE != 0) {
 		numberOfBlocks++;
@@ -119,13 +119,24 @@ static int ramdisk_getattr(const char *path, struct stat *stbuf)
 
 	ramNode *temp = searchNode(head, path);
 
+
+
 	if (temp != NULL && temp->type == DIR_TYPE) {
+		stbuf->st_ctime = temp->ctime;
+		stbuf->st_atime = temp->atime;
+		stbuf->st_mtime = temp->mtime;
+
 		stbuf->st_mode = S_IFDIR | temp->mode;
 		stbuf->st_nlink = 2;
 	} else if (temp != NULL && temp->type == FILE_TYPE) {
+		stbuf->st_ctime = temp->ctime;
+		stbuf->st_atime = temp->atime;
+		stbuf->st_mtime = temp->mtime;
+
 		stbuf->st_mode = S_IFREG | temp->mode;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = temp->size;
+
 	} else
 		res = -ENOENT;
 
@@ -213,7 +224,7 @@ static int ramdisk_mkdir(const char *path, mode_t mode) {
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
 	strcpy(n->name, path);
 	n->mode = mode;
-
+	n->type = DIR_TYPE;
 	n->atime = time(NULL);
 	n->ctime = time(NULL);
 	n->mtime = time(NULL);
@@ -234,6 +245,53 @@ static int ramdisk_rmdir(const char *path) {
 	return res;
 }
 
+static int ramdisk_create(const char * path, mode_t mode, struct fuse_file_info *fi) {
+	int res = 0;
+	printf("The path where create file is being called: %s\n", path);
+
+	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
+	strcpy(n->name, path);
+	n->mode = mode;
+	n->type = FILE_TYPE;
+	n->atime = time(NULL);
+	n->ctime = time(NULL);
+	n->mtime = time(NULL);
+
+	n->next = NULL;
+	n->size = 0;
+	n->memHead = NULL;
+
+	addNode(head, n);
+
+
+	return res;
+}
+
+static int ramdisk_rename(const char *source, const char *dest) {
+
+	ramNode *temp = searchNode(head, source);
+
+	if(temp == NULL)
+		return -ENOENT;
+
+	strcpy(temp->name, dest);
+
+	return 0;
+}
+
+static int ramdisk_utimens(const char* path, const struct timespec tv[2]) {
+	ramNode *temp = searchNode(head, path);
+
+	if(temp == NULL)
+		return -ENOENT;
+
+	temp->atime = tv[0].tv_sec;
+	temp->mtime = tv[1].tv_sec;
+
+	return 0;
+}
+
+
 static struct fuse_operations hello_oper = {
 	.getattr	= ramdisk_getattr,
 	.readdir	= ramdisk_readdir,
@@ -241,7 +299,12 @@ static struct fuse_operations hello_oper = {
 	.read		= ramdisk_read,
 	.mkdir 		= ramdisk_mkdir,
 	.rmdir		= ramdisk_rmdir,
+	.create 	= ramdisk_create,
+	.rename 	= ramdisk_rename,
+	.utimens 	= ramdisk_utimens,
+
 };
+
 
 int main(int argc, char *argv[])
 {
