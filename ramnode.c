@@ -9,7 +9,6 @@
 #include <libgen.h>
 
 #include "ramnode.h"
-#include "test.h"
 
 void addNode(ramNode *head, ramNode *node) {
 	node->next = NULL;

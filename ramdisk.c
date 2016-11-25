@@ -94,7 +94,12 @@ void testContents() {
 void initNodes() {
 
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
+	struct fuse_context *f = fuse_get_context();
 	strcpy(n->name, "/");
+
+	n->gid = f->gid;
+	n->uid = f->uid;
+
 	n->type = DIR_TYPE;
 	n->mode = 0777;
 
@@ -114,31 +119,29 @@ void initNodes() {
 static int ramdisk_getattr(const char *path, struct stat *stbuf)
 {
 	int res = 0;
-
+	printf("path %s\n", path);
 	memset(stbuf, 0, sizeof(struct stat));
 
 	ramNode *temp = searchNode(head, path);
 
+	if(temp == NULL)
+		return -ENOENT;
 
+	stbuf->st_ctime = temp->ctime;
+	stbuf->st_atime = temp->atime;
+	stbuf->st_mtime = temp->mtime;
+	stbuf->st_gid = temp->gid;
+	stbuf->st_uid = temp->uid;
 
 	if (temp != NULL && temp->type == DIR_TYPE) {
-		stbuf->st_ctime = temp->ctime;
-		stbuf->st_atime = temp->atime;
-		stbuf->st_mtime = temp->mtime;
-
 		stbuf->st_mode = S_IFDIR | temp->mode;
 		stbuf->st_nlink = 2;
 	} else if (temp != NULL && temp->type == FILE_TYPE) {
-		stbuf->st_ctime = temp->ctime;
-		stbuf->st_atime = temp->atime;
-		stbuf->st_mtime = temp->mtime;
-
 		stbuf->st_mode = S_IFREG | temp->mode;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = temp->size;
 
-	} else
-		res = -ENOENT;
+	}
 
 	return res;
 }
@@ -177,12 +180,10 @@ static int ramdisk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int ramdisk_open(const char *path, struct fuse_file_info *fi)
 {
+	int res;
 	ramNode *temp = searchNode(head, path);
 	if (temp == NULL)
 		return -ENOENT;
-
-	if ((fi->flags & 3) != O_RDONLY)
-		return -EACCES;
 
 	return 0;
 }
@@ -222,7 +223,12 @@ static int ramdisk_mkdir(const char *path, mode_t mode) {
 	printf("The path where mkdir is being called: %s\n", path);
 
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
+	struct fuse_context *f = fuse_get_context();
+
 	strcpy(n->name, path);
+	n->gid = f->gid;
+	n->uid = f->uid;
+
 	n->mode = mode;
 	n->type = DIR_TYPE;
 	n->atime = time(NULL);
@@ -248,9 +254,15 @@ static int ramdisk_rmdir(const char *path) {
 static int ramdisk_create(const char * path, mode_t mode, struct fuse_file_info *fi) {
 	int res = 0;
 	printf("The path where create file is being called: %s\n", path);
-
+	printf("The mode is: (%3o)", mode&0777);
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
+	struct fuse_context *f = fuse_get_context();
+
+
 	strcpy(n->name, path);
+	n->gid = f->gid;
+	n->uid = f->uid;
+
 	n->mode = mode;
 	n->type = FILE_TYPE;
 	n->atime = time(NULL);
@@ -291,6 +303,40 @@ static int ramdisk_utimens(const char* path, const struct timespec tv[2]) {
 	return 0;
 }
 
+static int ramdisk_write(const char *path, const char *buf, size_t size,
+	     off_t offset, struct fuse_file_info *fi){
+
+	int fd;
+	int res = size; // Change this
+
+	(void) fi;
+
+	ramNode *n = searchNode(head, path);
+	if (n == NULL) {
+		printf("NO ENTRY!\n");
+		return -ENOENT;
+	}
+
+
+	printf("Result value IS: %d\n", res);
+	close(fd);
+	return res;
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 static struct fuse_operations hello_oper = {
 	.getattr	= ramdisk_getattr,
@@ -302,6 +348,10 @@ static struct fuse_operations hello_oper = {
 	.create 	= ramdisk_create,
 	.rename 	= ramdisk_rename,
 	.utimens 	= ramdisk_utimens,
+	.write		= ramdisk_write,
+
+
+
 
 };
 

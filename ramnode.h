@@ -14,8 +14,7 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<sys/types.h>
-
-#include "test.h"
+#include<errno.h>
 
 typedef enum d_type {
 	DIR_TYPE, FILE_TYPE
@@ -30,6 +29,10 @@ typedef struct _fileMetaTable {
 	// These are the values
 	f_type type;
 	mode_t mode;
+
+	// Why the heck did I forget these
+	gid_t gid;
+	uid_t uid;
 
 	size_t size;
 
