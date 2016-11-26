@@ -64,5 +64,6 @@ void printNodes(ramNode *head);
 int computeSize(memBlock *mHead);
 int deleteNode(ramNode *head, const char *path);
 void addMemBlock(memBlock *head, memBlock *block);
+int deleteFile(ramNode *head, const char *path);
 
 #endif /* RAMNODE_H_ */

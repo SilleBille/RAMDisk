@@ -97,3 +97,27 @@ int deleteNode(ramNode *head, const char *path) {
 	}
 }
 
+int deleteFile(ramNode *head, const char *path) {
+	ramNode *temp = head;
+	ramNode *prev = temp;
+	ramNode *foundTemp = NULL;
+	ramNode *foundPrev = NULL;
+	while (temp != NULL) {
+
+		// Check whether it has any children, If so, throw an error
+		if(strcmp(temp->name, path) == 0 ) {
+			printf("deleting %s\n", temp->name);
+			foundTemp = temp;
+			foundPrev = prev;
+		}
+		prev = temp;
+		temp = temp->next;
+	}
+	if(foundTemp == NULL)
+		return -ENOENT;
+	else {
+		foundPrev->next = foundTemp->next;
+		return 0;
+	}
+}
+

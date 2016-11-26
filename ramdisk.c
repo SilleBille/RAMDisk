@@ -375,16 +375,31 @@ static int ramdisk_access(const char* path, int mask) {
 }
 
 static int ramdisk_unlink(const char* path) {
-	return 0;
+	int res = 0;
+	res = deleteFile(head, path);
+
+	return res;
 }
 
 static int ramdisk_chmod(const char* path, mode_t mode) {
-	printf("MKD-chmod\n");
+	ramNode *n = searchNode(head, path);
+
+	if(n == NULL)
+		return -ENOENT;
+
+	n->mode = mode;
+
 	return 0;
 }
 
 static int ramdisk_chown(const char* path, uid_t uid, gid_t gid) {
-	printf("MKD-CHown\n");
+	ramNode *n = searchNode(head, path);
+
+	if(n == NULL)
+		return -ENOENT;
+
+	n->gid = gid;
+	n->uid = uid;
 	return 0;
 }
 
@@ -459,7 +474,17 @@ static int ramdisk_poll(const char* path, struct fuse_file_info* fi,
 
 
 
+static int ramdisk_opendir(const char *path, struct fuse_file_info * fi) {
+	ramNode *n = searchNode(head, path);
 
+	if(n == NULL)
+		return -ENOENT;
+
+	if(n->type != DIR_TYPE)
+		return -ENOTDIR;
+
+	return 0;
+}
 
 
 
@@ -471,6 +496,7 @@ static struct fuse_operations hello_oper = {
 	.getattr	= ramdisk_getattr,
 	.readdir	= ramdisk_readdir,
 	.open		= ramdisk_open,
+	.opendir 	= ramdisk_opendir,
 	.read		= ramdisk_read,
 	.mkdir 		= ramdisk_mkdir,
 	.rmdir		= ramdisk_rmdir,
