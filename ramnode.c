@@ -24,6 +24,19 @@ void addNode(ramNode *head, ramNode *node) {
 	}
 }
 
+void addMemBlock(memBlock *head, memBlock *block) {
+	block->next = NULL;
+	if(head == NULL) {
+		head = block;
+	} else {
+		memBlock *temp = head;
+		while(temp->next != NULL) {
+			temp = temp->next;
+		}
+		temp->next = block;
+	}
+}
+
 ramNode* searchNode(ramNode *head, const char *name) {
 	ramNode *temp = head;
 	while (temp != NULL && strcmp(name, temp->name) != 0)

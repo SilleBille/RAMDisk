@@ -9,7 +9,7 @@
 #define RAMNODE_H_
 
 #define MAX_FILE_NAME_SIZE 256
-#define BLOCK_SIZE 1024
+#define BLOCK_SIZE 10
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -63,5 +63,6 @@ void addNode(ramNode *head, ramNode *node);
 void printNodes(ramNode *head);
 int computeSize(memBlock *mHead);
 int deleteNode(ramNode *head, const char *path);
+void addMemBlock(memBlock *head, memBlock *block);
 
 #endif /* RAMNODE_H_ */
