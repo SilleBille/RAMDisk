@@ -9,7 +9,7 @@
 #define RAMNODE_H_
 
 #define MAX_FILE_NAME_SIZE 256
-#define BLOCK_SIZE 10
+#define BLOCK_SIZE 1024
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -53,7 +53,7 @@ typedef struct _fileMetaTable {
  *
  */
 typedef struct _memoryBlocks {
-	char data[BLOCK_SIZE];
+	char data[BLOCK_SIZE+1];
 	struct _memoryBlocks *next;
 } memBlock;
 

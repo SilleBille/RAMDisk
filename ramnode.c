@@ -31,10 +31,13 @@ void addMemBlock(memBlock *head, memBlock *block) {
 	} else {
 		memBlock *temp = head;
 		while(temp->next != NULL) {
+			printf("Containts : %d\n", strlen(temp->data));
+
 			temp = temp->next;
 		}
 		temp->next = block;
 	}
+	printf("-------------\n");
 }
 
 ramNode* searchNode(ramNode *head, const char *name) {

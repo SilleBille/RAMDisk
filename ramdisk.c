@@ -26,7 +26,9 @@ static const char *bye_str = "Bye world!\n";
 static const char *bye_path = "/bye";
 
 ramNode *head;
+FILE * logFD;
 void testContents() {
+
 	int numberOfBlocks;
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
 	strcpy(n->name, hello_path);
@@ -200,6 +202,7 @@ static int ramdisk_read(const char *path, char *buf, size_t size, off_t offset,
 	char *contents = (char *)malloc(temp->size);
 	strcpy(contents, "");
 
+	temp->atime = time(NULL);
 	len = temp->size;
 	if (offset < len) {
 		if (offset + size > len)
@@ -287,6 +290,8 @@ static int ramdisk_rename(const char *source, const char *dest) {
 
 	strcpy(temp->name, dest);
 
+	temp->mtime = time(NULL);
+
 	return 0;
 }
 
@@ -304,55 +309,92 @@ static int ramdisk_utimens(const char* path, const struct timespec tv[2]) {
 
 static int ramdisk_write(const char *path, const char *buf, size_t size,
 	     off_t offset, struct fuse_file_info *fi){
-
+	logFD = fopen("log.txt", "w");
 	(void) fi;
 	int length;
 	ramNode *n = searchNode(head, path);
-
+	printf("==========The size is: %d\n\n\n\n", size);
 	if (n == NULL)
 		return -ENOENT;
 	char *contents = (char *)malloc(n->size);
 	strcpy(contents, "");
 
 	memBlock *m = n->memHead;
+	memBlock *prev;
 	while(m != NULL) {
 		strcat(contents, m->data);
+		prev = m;
 		m = m->next;
+		free(prev);
 	}
+
+
 
 	char *finalContents = (char *)malloc(n->size + size);
 	strncpy(finalContents, contents, offset);
 	finalContents[offset] = '\0';
-	strcat(finalContents, buf);
+	strncat(finalContents, buf, size);
 	strcat(finalContents, contents + offset);
+	free(contents);
 
-
+	// printf("After offset!!! %d\n", offset);
 	length = strlen(finalContents);
 	int x=0;
-
+	printf("FINAL STRING LENGTH: %d and offset: %d\n\n", length, offset);
 	n->memHead = NULL;
-	while(( length / BLOCK_SIZE) != 0) {
+	while(( length / (BLOCK_SIZE)) != 0) {
 		m = (memBlock *)malloc(sizeof(memBlock));
 		strncpy(m->data, finalContents + x, BLOCK_SIZE);
+		m->data[BLOCK_SIZE] = '\0';
+
+		printf("Copied bytes of: %d\n", strlen(m->data));
 		length -=BLOCK_SIZE;
 		x += BLOCK_SIZE;
+		m->next = NULL;
+
 		if(n->memHead == NULL) {
-			m->next = NULL;
+			n->memHead = m;
+		}
+		else {
+			printf("Adding blocks\n\n");
+			addMemBlock(n->memHead, m);
+		}
+	}
+	printf("The REMAINING string length: %d\n", length);
+	if(length != 0) {
+		m = (memBlock *)malloc(sizeof(memBlock));
+		m->next = NULL;
+		strncpy(m->data, finalContents + x, length);
+		m->data[length] = '\0';
+		if(n->memHead == NULL) {
 			n->memHead = m;
 		}
 		else
 			addMemBlock(n->memHead, m);
 	}
-	printf("The remaining string length: %d\n", length);
-	if(length != 0) {
-		m = (memBlock *)malloc(sizeof(memBlock));
-		strncpy(m->data, finalContents + x, length);
-		m->data[length] = '\0';
-		addMemBlock(n->memHead, m);
+
+	n->size = strlen(finalContents);
+	computeSize(n->memHead);
+
+	free(finalContents);
+
+
+	n->atime = time(NULL);
+	n->mtime = time(NULL);
+
+
+
+	char *ffcontents = (char *)malloc(n->size);
+	strcpy(ffcontents, "");
+
+	memBlock *mm = n->memHead;
+
+	while(mm != NULL) {
+		strcat(ffcontents, mm->data);
+		mm = mm->next;
 	}
-
-	n->size = computeSize(n->memHead);
-
+	printf("=======================\n");
+	fwrite(ffcontents, sizeof(char), strlen(finalContents), logFD);
 	return size;
 }
 
@@ -513,7 +555,7 @@ static struct fuse_operations hello_oper = {
 	.chmod = ramdisk_chmod,
 	.chown = ramdisk_chown,
 	.truncate = ramdisk_truncate,
-	.ftruncate = ramdisk_ftruncate,
+	//.ftruncate = ramdisk_ftruncate,
 	.statfs = ramdisk_statfs,
 	.release = ramdisk_release,
 	.releasedir = ramdisk_releasedir,
