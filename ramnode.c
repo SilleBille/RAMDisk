@@ -24,6 +24,10 @@ void addNode(ramNode *head, ramNode *node) {
 	}
 }
 
+void printLog(int fd, char *msg) {
+	write(fd, msg, strlen(msg));
+}
+
 /*void addMemBlock(memBlock *head, memBlock *block) {
 	block->next = NULL;
 	if(head == NULL) {

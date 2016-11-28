@@ -54,4 +54,6 @@ void printNodes(ramNode *head);
 int deleteNode(ramNode *head, const char *path);
 int deleteFile(ramNode *head, const char *path);
 
+void printLog(int, char *);
+
 #endif /* RAMNODE_H_ */

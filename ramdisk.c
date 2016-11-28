@@ -26,9 +26,13 @@ static const char *bye_str = "Bye world!\n";
 static const char *bye_path = "/bye";
 
 ramNode *head;
-FILE * logFD;
+long int ramFSSize = 0;
+long int ramAvailableSize = 0;
+char *persistentFile;
+int logFD;
 void testContents() {
-
+	logFD = open("logs.txt", O_WRONLY | O_APPEND);
+	printf("Opening %d\n", logFD);
 	int numberOfBlocks;
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
 	strcpy(n->name, hello_path);
@@ -197,7 +201,6 @@ static int ramdisk_read(const char *path, char *buf, size_t size, off_t offset,
 	if(len == 0) {
 		return 0;
 	}
-	printf("Read size in read method: %d\n", size);
 
 
 	if (offset < len) {
@@ -214,7 +217,14 @@ static int ramdisk_mkdir(const char *path, mode_t mode) {
 	int res = 0;
 	printf("The path where mkdir is being called: %s\n", path);
 
+	if(ramAvailableSize < sizeof(ramNode)) {
+		printLog(logFD, "No space for folder: ");
+		printLog(logFD, path);
+		return -ENOSPC;
+	}
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
+	ramAvailableSize = ramAvailableSize - sizeof(ramNode);
+
 	struct fuse_context *f = fuse_get_context();
 
 	strcpy(n->name, path);
@@ -240,13 +250,22 @@ static int ramdisk_rmdir(const char *path) {
 
 	res = deleteNode(head, path);
 
+	if(res == 0) {
+		ramAvailableSize = ramAvailableSize + sizeof(ramNode);
+	}
+
 	return res;
 }
 
 static int ramdisk_create(const char * path, mode_t mode, struct fuse_file_info *fi) {
 	int res = 0;
-	printf("The path where create file is being called: %s\n", path);
-	printf("The mode is: (%3o)", mode&0777);
+
+	if(ramAvailableSize < sizeof(ramNode)) {
+		printLog(logFD, "\n\nNo space for file: ");
+		printLog(logFD, path);
+		return -ENOSPC;
+	}
+
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
 	struct fuse_context *f = fuse_get_context();
 
@@ -267,7 +286,7 @@ static int ramdisk_create(const char * path, mode_t mode, struct fuse_file_info 
 	n->data[0] = '\0';
 
 	addNode(head, n);
-
+	ramAvailableSize = ramAvailableSize - sizeof(ramNode);
 
 	return res;
 }
@@ -303,17 +322,23 @@ static int ramdisk_write(const char *path, const char *buf, size_t size,
 
 	ramNode *temp = searchNode(head, path);
 
-	printf("The path is %s,  size is of %d, offset %d\n", path, size, offset);
 
 	if (temp == NULL)
 			return -ENOENT;
 
 
 	if(size != 0) {
+		if(ramAvailableSize < size) {
+			printLog(logFD, "\n\nNo space for to write for file: ");
+			printLog(logFD, path);
+			return -ENOSPC;
+		}
+
 		temp->data = (char*) realloc(temp->data, offset + size);
 		memcpy(temp->data+offset, buf, size);
 
 		temp->size = offset + size;
+		ramAvailableSize = ramAvailableSize - size;
 
 	}
 
@@ -321,6 +346,10 @@ static int ramdisk_write(const char *path, const char *buf, size_t size,
 }
 static int ramdisk_unlink(const char* path) {
 	int res = 0;
+	ramNode *temp = searchNode(head, path);
+	if(temp != NULL) {
+		ramAvailableSize = ramAvailableSize + sizeof(ramNode) + temp->size;
+	}
 	res = deleteFile(head, path);
 
 	return res;
@@ -371,9 +400,11 @@ static int ramdisk_truncate(const char* path, off_t size) {
 		return -ENOENT;
 
 	if(size == 0) {
+		ramAvailableSize = ramAvailableSize + temp->size;
 		temp->data = realloc(temp->data, size+1);
 		temp->data[0] = '\0';
 	} else {
+		ramAvailableSize = ramAvailableSize + temp->size - size;
 		temp->data = realloc(temp->data, size+1);
 		temp->data[size] = '\0';
 	}
@@ -398,10 +429,7 @@ static int ramdisk_release(const char* path, struct fuse_file_info *fi) {
 	return 0;
 } */
 
-static int ramdisk_releasedir(const char* path, struct fuse_file_info *fi) {
-	printf("MKD-release dir\n");
-	return 0;
-}
+
 
 /*static int ramdisk_fsync(const char* path, int isdatasync,
 		struct fuse_file_info* fi) {
@@ -410,7 +438,7 @@ static int ramdisk_releasedir(const char* path, struct fuse_file_info *fi) {
 }*/
 
 static int ramdisk_flush(const char* path, struct fuse_file_info* fi) {
-	printf("MKD-flush\n");
+
 	return 0;
 }
 
@@ -515,6 +543,30 @@ static struct fuse_operations hello_oper = {
 
 int main(int argc, char *argv[])
 {
+
+    char *newArgs[argc];	//Change this to argc-1
+    int newArgc = 2;
+	if(argc < 3) {
+		fprintf(stderr, "Run the program: ./ramdisk <mountpoint> <size in MB> {file Name}\n");
+		return 1;
+	} else if(argc == 3) {
+		newArgs[0] = strdup(argv[0]);
+		newArgs[1] = strdup(argv[1]);
+		newArgs[2] = strdup("-f");
+		ramFSSize = atol(argv[2]);
+		ramFSSize = ramFSSize * 1024 * 1024;
+
+	} else if(argc ==4) {
+		newArgs[0] = strdup(argv[0]);
+		newArgs[1] = strdup(argv[1]);
+
+		ramFSSize = atol(argv[2]);
+		ramFSSize = ramFSSize * 1024 * 1024;
+		persistentFile = strdup(argv[3]);
+	}
+	printf("The total size: %d\n\n", ramFSSize);
+	ramAvailableSize = ramFSSize;
+
 	initNodes();
-	return fuse_main(argc, argv, &hello_oper, NULL);
+	return fuse_main(newArgc, newArgs, &hello_oper, NULL);
 }
