@@ -19,7 +19,7 @@
 
 #include "ramnode.h"
 
-static const char *hello_str = "Hello World!\n";
+static const char *hello_str = "abc";
 static const char *hello_path = "/hello";
 
 static const char *bye_str = "Bye world!\n";
@@ -39,21 +39,17 @@ void testContents() {
 	n->ctime = time(NULL);
 	n->mtime = time(NULL);
 
-	numberOfBlocks = strlen(hello_str)/BLOCK_SIZE;
-	if(strlen(hello_str)%BLOCK_SIZE != 0) {
-		numberOfBlocks++;
-	}
+
 
 	printf("Number of blocks allocated: %d", numberOfBlocks);
 
 
-	memBlock *mem = (memBlock *) malloc(sizeof(memBlock) * numberOfBlocks);
-	strcpy(mem->data, hello_str);
-	mem->next = NULL;
+	n->data = (char *) malloc(strlen(hello_str));
+
+	strcpy(n->data, hello_str);
 
 
-	n->memHead = mem;
-	n->size = computeSize(mem);
+	n->size = strlen(hello_str);
 
 	n->next = NULL;
 
@@ -70,21 +66,15 @@ void testContents() {
 	m->mtime = time(NULL);
 
 
-	numberOfBlocks = strlen(bye_str)/BLOCK_SIZE;
-	if(strlen(bye_str)%BLOCK_SIZE != 0) {
-		numberOfBlocks++;
-	}
+
 
 	printf("Number of blocks allocated for BYE: %d", numberOfBlocks);
 
 
-	memBlock *mem1 = (memBlock *) malloc(sizeof(memBlock) * numberOfBlocks);
-	strcpy(mem1->data, bye_str);
-	mem1->next = NULL;
+	m->data = (char *) malloc(strlen(bye_str));
+	strcpy(m->data, bye_str);
 
-
-	m->memHead = mem1;
-	m->size = computeSize(mem1);
+	m->size = strlen(bye_str);
 
 	m->next = NULL;
 
@@ -107,11 +97,12 @@ void initNodes() {
 	n->atime = time(NULL);
 	n->ctime = time(NULL);
 	n->mtime = time(NULL);
-
-	n->memHead = NULL;
+	n->data = NULL;
 	n->next = NULL;
 
 	head = n;
+
+
 
 	testContents();
 }
@@ -158,7 +149,7 @@ static int ramdisk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	ramNode *temp = head;
 	while (temp != NULL) {
-		tempName = (char *) malloc(temp->size);
+		tempName = (char *) malloc(strlen(temp->name));
 		strcpy(tempName, temp->name);
 
 		char *parentName = dirname(tempName);
@@ -171,10 +162,10 @@ static int ramdisk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			}
 		}
 
+		free(tempName);
+
 		temp = temp->next;
 	}
-
-	printNodes(head);
 
 	return 0;
 }
@@ -194,26 +185,25 @@ static int ramdisk_read(const char *path, char *buf, size_t size, off_t offset,
 {
 	size_t len;
 	(void) fi;
-
 	ramNode *temp = searchNode(head, path);
 
 	if (temp == NULL)
 		return -ENOENT;
-	char *contents = (char *)malloc(temp->size);
-	strcpy(contents, "");
+	if(temp->type == DIR_TYPE)
+		return -ENOENT;
 
 	temp->atime = time(NULL);
 	len = temp->size;
+	if(len == 0) {
+		return 0;
+	}
+	printf("Read size in read method: %d\n", size);
+
+
 	if (offset < len) {
 		if (offset + size > len)
 			size = len - offset;
-		memBlock *m = temp->memHead;
-
-		while(m != NULL) {
-			strcat(contents, m->data);
-			m = m->next;
-		}
-		memcpy(buf, contents + offset, size);
+		memcpy(buf, temp->data + offset, size);
 	} else
 		size = 0;
 
@@ -238,7 +228,7 @@ static int ramdisk_mkdir(const char *path, mode_t mode) {
 	n->mtime = time(NULL);
 	n->next = NULL;
 	n->size = 0;
-	n->memHead = NULL;
+	n->data = NULL;
 
 	addNode(head, n);
 
@@ -273,7 +263,8 @@ static int ramdisk_create(const char * path, mode_t mode, struct fuse_file_info 
 
 	n->next = NULL;
 	n->size = 0;
-	n->memHead = NULL;
+	n->data = (char *)malloc(sizeof(char));
+	n->data[0] = '\0';
 
 	addNode(head, n);
 
@@ -309,113 +300,25 @@ static int ramdisk_utimens(const char* path, const struct timespec tv[2]) {
 
 static int ramdisk_write(const char *path, const char *buf, size_t size,
 	     off_t offset, struct fuse_file_info *fi){
-	logFD = fopen("log.txt", "w");
-	(void) fi;
-	int length;
-	ramNode *n = searchNode(head, path);
-	printf("==========The size is: %d\n\n\n\n", size);
-	if (n == NULL)
-		return -ENOENT;
-	char *contents = (char *)malloc(n->size);
-	strcpy(contents, "");
 
-	memBlock *m = n->memHead;
-	memBlock *prev;
-	while(m != NULL) {
-		strcat(contents, m->data);
-		prev = m;
-		m = m->next;
-		free(prev);
+	ramNode *temp = searchNode(head, path);
+
+	printf("The path is %s,  size is of %d, offset %d\n", path, size, offset);
+
+	if (temp == NULL)
+			return -ENOENT;
+
+
+	if(size != 0) {
+		temp->data = (char*) realloc(temp->data, offset + size);
+		memcpy(temp->data+offset, buf, size);
+
+		temp->size = offset + size;
+
 	}
 
-
-
-	char *finalContents = (char *)malloc(n->size + size);
-	strncpy(finalContents, contents, offset);
-	finalContents[offset] = '\0';
-	strncat(finalContents, buf, size);
-	strcat(finalContents, contents + offset);
-	free(contents);
-
-	// printf("After offset!!! %d\n", offset);
-	length = strlen(finalContents);
-	int x=0;
-	printf("FINAL STRING LENGTH: %d and offset: %d\n\n", length, offset);
-	n->memHead = NULL;
-	while(( length / (BLOCK_SIZE)) != 0) {
-		m = (memBlock *)malloc(sizeof(memBlock));
-		strncpy(m->data, finalContents + x, BLOCK_SIZE);
-		m->data[BLOCK_SIZE] = '\0';
-
-		printf("Copied bytes of: %d\n", strlen(m->data));
-		length -=BLOCK_SIZE;
-		x += BLOCK_SIZE;
-		m->next = NULL;
-
-		if(n->memHead == NULL) {
-			n->memHead = m;
-		}
-		else {
-			printf("Adding blocks\n\n");
-			addMemBlock(n->memHead, m);
-		}
-	}
-	printf("The REMAINING string length: %d\n", length);
-	if(length != 0) {
-		m = (memBlock *)malloc(sizeof(memBlock));
-		m->next = NULL;
-		strncpy(m->data, finalContents + x, length);
-		m->data[length] = '\0';
-		if(n->memHead == NULL) {
-			n->memHead = m;
-		}
-		else
-			addMemBlock(n->memHead, m);
-	}
-
-	n->size = strlen(finalContents);
-	computeSize(n->memHead);
-
-	free(finalContents);
-
-
-	n->atime = time(NULL);
-	n->mtime = time(NULL);
-
-
-
-	char *ffcontents = (char *)malloc(n->size);
-	strcpy(ffcontents, "");
-
-	memBlock *mm = n->memHead;
-
-	while(mm != NULL) {
-		strcat(ffcontents, mm->data);
-		mm = mm->next;
-	}
-	printf("=======================\n");
-	fwrite(ffcontents, sizeof(char), strlen(finalContents), logFD);
 	return size;
 }
-
-
-
-
-
-static void ramdisk_destroy(void* private_data) {
-	printf("MKD-destroy\n");
-}
-
-static int ramdisk_fgetattr(const char* path, struct stat* stbuf) {
-	printf("MKD-fgetattr\n");
-	return 0;
-}
-
-static int ramdisk_access(const char* path, int mask) {
-	printf("MKD-Access\n");
-	return 0;
-}
-
 static int ramdisk_unlink(const char* path) {
 	int res = 0;
 	res = deleteFile(head, path);
@@ -445,12 +348,41 @@ static int ramdisk_chown(const char* path, uid_t uid, gid_t gid) {
 	return 0;
 }
 
+
+
+/*
+
+static void ramdisk_destroy(void* private_data) {
+	printf("MKD-destroy\n");
+}
+
+static int ramdisk_fgetattr(const char* path, struct stat* stbuf) {
+	printf("MKD-fgetattr\n");
+	return 0;
+}
+*/
+
+
+
 static int ramdisk_truncate(const char* path, off_t size) {
-	printf("MKD-TRUNCATE------------ %s   size: %d\n", path, size);
+	ramNode * temp = searchNode(head, path);
+
+	if(temp == NULL)
+		return -ENOENT;
+
+	if(size == 0) {
+		temp->data = realloc(temp->data, size+1);
+		temp->data[0] = '\0';
+	} else {
+		temp->data = realloc(temp->data, size+1);
+		temp->data[size] = '\0';
+	}
+
+
 	return 0;
 }
 
-static int ramdisk_ftruncate(const char* path, off_t size) {
+/*static int ramdisk_ftruncate(const char* path, off_t size) {
 	printf("MKD-ftruncate >>>>>>>>>>>>>>>>>>>>> %s      %d\n", path, size);
 	return 0;
 }
@@ -464,25 +396,25 @@ static int ramdisk_statfs(const char* path, struct statvfs* stbuf) {
 static int ramdisk_release(const char* path, struct fuse_file_info *fi) {
 	printf("MKD-release\n");
 	return 0;
-}
+} */
 
 static int ramdisk_releasedir(const char* path, struct fuse_file_info *fi) {
 	printf("MKD-release dir\n");
 	return 0;
 }
 
-static int ramdisk_fsync(const char* path, int isdatasync,
+/*static int ramdisk_fsync(const char* path, int isdatasync,
 		struct fuse_file_info* fi) {
 	printf("MKD-fsync\n");
 	return 0;
-}
+}*/
 
 static int ramdisk_flush(const char* path, struct fuse_file_info* fi) {
 	printf("MKD-flush\n");
 	return 0;
 }
 
-static int ramdisk_fsyncdir(const char* path, int isdatasync,
+/*static int ramdisk_fsyncdir(const char* path, int isdatasync,
 		struct fuse_file_info* fi) {
 	printf("MKD-fsyncdir\n");
 	return 0;
@@ -510,6 +442,7 @@ static int ramdisk_poll(const char* path, struct fuse_file_info* fi,
 	printf("MKD-poll\n");
 	return 0;
 }
+*/
 
 
 
@@ -547,8 +480,17 @@ static struct fuse_operations hello_oper = {
 	.utimens 	= ramdisk_utimens,
 	.write		= ramdisk_write,
 
-	.flush 		= ramdisk_flush,
-	.destroy = ramdisk_destroy,
+	//.access = ramdisk_access,
+	.unlink = ramdisk_unlink,
+	.chmod = ramdisk_chmod,
+	.chown = ramdisk_chown,
+
+	// .flush 		= ramdisk_flush,
+
+	.truncate = ramdisk_truncate,
+	// .releasedir = ramdisk_releasedir,
+
+	/*.destroy = ramdisk_destroy,
 	//.fgetattr = ramdisk_fgetattr,
 	.access = ramdisk_access,
 	.unlink = ramdisk_unlink,
@@ -565,7 +507,7 @@ static struct fuse_operations hello_oper = {
 	.lock = ramdisk_lock,
 	.bmap = ramdisk_bmap,
 	.ioctl = ramdisk_ioctl,
-	.poll = ramdisk_poll,
+	.poll = ramdisk_poll,*/
 
 
 };

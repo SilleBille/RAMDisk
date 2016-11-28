@@ -9,7 +9,6 @@
 #define RAMNODE_H_
 
 #define MAX_FILE_NAME_SIZE 256
-#define BLOCK_SIZE 1024
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -40,30 +39,19 @@ typedef struct _fileMetaTable {
 	time_t mtime;
 	time_t ctime;
 
-	// The pointer to memory blocks
-	struct _memoryBlocks *memHead;
-
 	// Pointer to next block
 	struct _fileMetaTable *next;
 
+	char *data;
+
 } ramNode;
 
-/* To maintain the blocks allocated
- * The block size considered is 1KB
- *
- */
-typedef struct _memoryBlocks {
-	char data[BLOCK_SIZE+1];
-	struct _memoryBlocks *next;
-} memBlock;
 
 
 ramNode* searchNode(ramNode *head, const char *name);
 void addNode(ramNode *head, ramNode *node);
 void printNodes(ramNode *head);
-int computeSize(memBlock *mHead);
 int deleteNode(ramNode *head, const char *path);
-void addMemBlock(memBlock *head, memBlock *block);
 int deleteFile(ramNode *head, const char *path);
 
 #endif /* RAMNODE_H_ */

@@ -24,7 +24,7 @@ void addNode(ramNode *head, ramNode *node) {
 	}
 }
 
-void addMemBlock(memBlock *head, memBlock *block) {
+/*void addMemBlock(memBlock *head, memBlock *block) {
 	block->next = NULL;
 	if(head == NULL) {
 		head = block;
@@ -38,7 +38,7 @@ void addMemBlock(memBlock *head, memBlock *block) {
 		temp->next = block;
 	}
 	printf("-------------\n");
-}
+}*/
 
 ramNode* searchNode(ramNode *head, const char *name) {
 	ramNode *temp = head;
@@ -59,7 +59,7 @@ void printNodes(ramNode *head) {
 	}
 }
 
-int computeSize(memBlock *mHead) {
+/*int computeSize(memBlock *mHead) {
 	memBlock *t = mHead;
 	int sizeOfFile = 0;
 	while (t != NULL) {
@@ -68,7 +68,7 @@ int computeSize(memBlock *mHead) {
 	}
 	printf("Size is: %d\n", sizeOfFile);
 	return sizeOfFile;
-}
+}*/
 
 int deleteNode(ramNode *head, const char *path) {
 	ramNode *temp = head;
