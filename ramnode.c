@@ -24,7 +24,7 @@ void addNode(ramNode *head, ramNode *node) {
 	}
 }
 
-void printLog(int fd, char *msg) {
+void printLog(int fd, const char *msg) {
 	write(fd, msg, strlen(msg));
 }
 
