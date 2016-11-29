@@ -112,10 +112,120 @@ void initNodes() {
 	if(access( persistentFile, F_OK ) != -1 ) {
 		// load the data from here
 		printf("i need to load data from here\n");
+		FILE *fp = fopen(persistentFile, "r");
+		char *name = (char*)malloc(256);
+		int type;
+		mode_t mode;
+		gid_t gid;
+		uid_t uid;
+		size_t size;
+		char *data;
+		time_t atime;
+		time_t mtime;
+		time_t ctime;
+		while(!feof(fp)) {
+
+			fscanf(fp, "%s", name);
+			if(searchNode(head, name) != NULL)
+				break;
+			ramNode *t = (ramNode *)malloc(sizeof(ramNode));
+
+			// Name of the file
+
+			strcpy(t->name, name);
+			printf("The name value: %s\n", name);
+
+			// type
+			char temp[10];
+			fscanf(fp, "%s", temp);
+			type = atoi(temp);
+			t->type = type;
+			printf("TYpe: %d\n", type);
+
+
+			// mode
+			fscanf(fp, "%s", temp);
+			mode = atoi(temp);
+			t->mode = mode;
+			printf("Mode: %d\n", mode);
+
+			// gid
+			fscanf(fp, "%s", temp);
+			gid = atoi(temp);
+			t->gid = gid;
+			printf("gid: %d\n", gid);
+
+			//uid
+			fscanf(fp, "%s", temp);
+			uid = atoi(temp);
+			t->uid = uid;
+			printf("uid: %d\n", uid);
+
+			//size
+			fscanf(fp, "%s", temp);
+			size = atoi(temp);
+			t->size = size;
+			printf("size: %d\n", size);
+
+
+			if(type == DIR_TYPE) {
+				// No need to read data
+				t->data = NULL;
+
+				// a time
+				fscanf(fp, "%s", temp);
+				atime = atol(temp);
+				t->atime = atime;
+				printf("atime: %d\n", atime);
+
+				// m time
+				fscanf(fp, "%s", temp);
+				mtime = atol(temp);
+				t->mtime = mtime;
+				printf("mtime: %d\n", mtime);
+
+				// c time
+				fscanf(fp, "%s", temp);
+				ctime = atol(temp);
+				t->ctime = ctime;
+				printf("ctime: %d\n", ctime);
+
+
+			} else if(type == FILE_TYPE) {
+				// No need to read data
+				t->data = (char *) malloc(t->size);
+				fseek(fp, 1, SEEK_CUR);
+				fread(t->data, 1, t->size, fp);
+				printf("Data: %s\n", t->data);
+
+				// a time
+				fscanf(fp, "%s", temp);
+				atime = atol(temp);
+				t->atime = atime;
+				printf("atime: %d\n", atime);
+
+				// m time
+				fscanf(fp, "%s", temp);
+				mtime = atol(temp);
+				t->mtime = mtime;
+				printf("mtime: %d\n", mtime);
+
+				// c time
+				fscanf(fp, "%s", temp);
+				ctime = atol(temp);
+				t->ctime = ctime;
+				printf("ctime: %d\n", ctime);
+			}
+
+
+			addNode(head, t);
+		}
+
+		fclose(fp);
 
 	}
 
-	testContents();
+	//testContents();
 }
 
 
@@ -489,7 +599,7 @@ static void ramdisk_destroy(void* private_data) {
 	if(isPersistentEnabled == 1) {
 		FILE *fp = fopen(dupPersistentFile, "w");
 
-		ramNode *temp = head;
+		ramNode *temp = head->next;
 		while(temp != NULL) {
 
 			// Write the file name
@@ -512,8 +622,9 @@ static void ramdisk_destroy(void* private_data) {
 			fprintf(fp, "%d\n", temp->size);
 
 			// data
-			if(temp->type == FILE_TYPE)
-				fwrite(temp->data, 1, temp->size, fp);
+			if(temp->type == FILE_TYPE) {
+				fwrite(temp->data, sizeof(char), temp->size, fp);
+			}
 
 
 			// atime
