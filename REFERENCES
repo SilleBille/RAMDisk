@@ -1,0 +1,39 @@
+WEBSITES REFERRED TO:
+=====================
+
+// Getting time
+http://stackoverflow.com/questions/5141960/get-the-current-time-in-c
+
+// Structure of Stat
+http://pubs.opengroup.org/onlinepubs/7908799/xsh/sysstat.h.html
+
+// To read EOF of a file
+http://stackoverflow.com/questions/15368229/extra-loop-with-eof
+http://stackoverflow.com/questions/5431941/why-is-while-feof-file-always-wrong
+
+// Seeking within a file pointer
+http://beej.us/guide/bgc/output/html/multipage/fseek.html
+
+// Complete documentation of lib fuse
+https://www.cs.hmc.edu/~geoff/classes/hmc.cs135.201109/homework/fuse/fuse_doc.html
+
+// For basic confusion of \0
+http://stackoverflow.com/questions/18654465/how-0-is-treated-in-printf
+
+// For file related operation 
+https://www.tutorialspoint.com/c_standard_library/c_function_fwrite.htm (also referred for other file io related operations)
+
+http://stackoverflow.com/questions/13002367/write-a-file-byte-by-byte-in-c-using-fwrite
+
+STUDENTS DISCUSSED WITH:
+========================
+Karan
+Shubam Saloni
+Manushri
+Dhurgesh
+Ashwin
+Pranav
+Nisharag
+Shaurya
+
+
