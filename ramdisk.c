@@ -18,13 +18,6 @@
 #include <libgen.h>
 
 #include "ramnode.h"
-#include "logs.h"
-
-static const char *hello_str = "abc";
-static const char *hello_path = "/hello";
-
-static const char *bye_str = "Bye world!\n";
-static const char *bye_path = "/bye";
 
 ramNode *head;
 long int ramFSSize = 0;
@@ -33,62 +26,7 @@ char *persistentFile;
 char *dupPersistentFile;
 
 int isPersistentEnabled= 0;
-// int logFD;
-void testContents() {
-	// logFD = open("logs.txt", O_WRONLY | O_APPEND);
-	int numberOfBlocks;
-	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
-	strcpy(n->name, hello_path);
-	n->type = FILE_TYPE;
-	n->mode = 0666;
 
-	n->atime = time(NULL);
-	n->ctime = time(NULL);
-	n->mtime = time(NULL);
-
-
-
-	printf("Number of blocks allocated: %d", numberOfBlocks);
-
-
-	n->data = (char *) malloc(strlen(hello_str));
-
-	strcpy(n->data, hello_str);
-
-
-	n->size = strlen(hello_str);
-
-	n->next = NULL;
-
-	addNode(head, n);
-
-
-
-	ramNode *m = (ramNode *) malloc(sizeof(ramNode));
-	strcpy(m->name, bye_path);
-	m->type = FILE_TYPE;
-	m->mode = 0666;
-	m->atime = time(NULL);
-	m->ctime = time(NULL);
-	m->mtime = time(NULL);
-
-
-
-
-	printf("Number of blocks allocated for BYE: %d", numberOfBlocks);
-
-
-	m->data = (char *) malloc(strlen(bye_str));
-	strcpy(m->data, bye_str);
-
-	m->size = strlen(bye_str);
-
-	m->next = NULL;
-
-	addNode(head, m);
-
-
-}
 void initNodes() {
 
 	ramNode *n = (ramNode *) malloc(sizeof(ramNode));
@@ -111,7 +49,6 @@ void initNodes() {
 
 	if(access( persistentFile, F_OK ) != -1 ) {
 		// load the data from here
-		printf("i need to load data from here\n");
 		FILE *fp = fopen(persistentFile, "r");
 		char *name = (char*)malloc(256);
 		int type;
@@ -133,39 +70,33 @@ void initNodes() {
 			// Name of the file
 
 			strcpy(t->name, name);
-			printf("The name value: %s\n", name);
 
 			// type
 			char temp[10];
 			fscanf(fp, "%s", temp);
 			type = atoi(temp);
 			t->type = type;
-			printf("TYpe: %d\n", type);
 
 
 			// mode
 			fscanf(fp, "%s", temp);
 			mode = atoi(temp);
 			t->mode = mode;
-			printf("Mode: %d\n", mode);
 
 			// gid
 			fscanf(fp, "%s", temp);
 			gid = atoi(temp);
 			t->gid = gid;
-			printf("gid: %d\n", gid);
 
 			//uid
 			fscanf(fp, "%s", temp);
 			uid = atoi(temp);
 			t->uid = uid;
-			printf("uid: %d\n", uid);
 
 			//size
 			fscanf(fp, "%s", temp);
 			size = atoi(temp);
 			t->size = size;
-			printf("size: %d\n", size);
 
 
 			if(type == DIR_TYPE) {
@@ -176,19 +107,16 @@ void initNodes() {
 				fscanf(fp, "%s", temp);
 				atime = atol(temp);
 				t->atime = atime;
-				printf("atime: %d\n", atime);
 
 				// m time
 				fscanf(fp, "%s", temp);
 				mtime = atol(temp);
 				t->mtime = mtime;
-				printf("mtime: %d\n", mtime);
 
 				// c time
 				fscanf(fp, "%s", temp);
 				ctime = atol(temp);
 				t->ctime = ctime;
-				printf("ctime: %d\n", ctime);
 
 
 			} else if(type == FILE_TYPE) {
@@ -196,25 +124,21 @@ void initNodes() {
 				t->data = (char *) malloc(t->size);
 				fseek(fp, 1, SEEK_CUR);
 				fread(t->data, 1, t->size, fp);
-				printf("Data: %s\n", t->data);
 
 				// a time
 				fscanf(fp, "%s", temp);
 				atime = atol(temp);
 				t->atime = atime;
-				printf("atime: %d\n", atime);
 
 				// m time
 				fscanf(fp, "%s", temp);
 				mtime = atol(temp);
 				t->mtime = mtime;
-				printf("mtime: %d\n", mtime);
 
 				// c time
 				fscanf(fp, "%s", temp);
 				ctime = atol(temp);
 				t->ctime = ctime;
-				printf("ctime: %d\n", ctime);
 			}
 
 
@@ -224,15 +148,12 @@ void initNodes() {
 		fclose(fp);
 
 	}
-
-	//testContents();
 }
 
 
 static int ramdisk_getattr(const char *path, struct stat *stbuf)
 {
 	int res = 0;
-	printf("path %s\n", path);
 	memset(stbuf, 0, sizeof(struct stat));
 
 	ramNode *temp = searchNode(head, path);
@@ -332,7 +253,6 @@ static int ramdisk_read(const char *path, char *buf, size_t size, off_t offset,
 
 static int ramdisk_mkdir(const char *path, mode_t mode) {
 	int res = 0;
-	printf("The path where mkdir is being called: %s\n", path);
 
 	if(ramAvailableSize < sizeof(ramNode)) {
 		return -ENOSPC;
@@ -517,69 +437,6 @@ static int ramdisk_truncate(const char* path, off_t size) {
 
 	return 0;
 }
-
-/*static int ramdisk_ftruncate(const char* path, off_t size) {
-	printf("MKD-ftruncate >>>>>>>>>>>>>>>>>>>>> %s      %d\n", path, size);
-	return 0;
-}
-
-
-static int ramdisk_statfs(const char* path, struct statvfs* stbuf) {
-	printf("MKD-statfs\n");
-	return 0;
-}
-
-static int ramdisk_release(const char* path, struct fuse_file_info *fi) {
-	printf("MKD-release\n");
-	return 0;
-} */
-
-
-
-/*static int ramdisk_fsync(const char* path, int isdatasync,
-		struct fuse_file_info* fi) {
-	printf("MKD-fsync\n");
-	return 0;
-}*/
-
-static int ramdisk_flush(const char* path, struct fuse_file_info* fi) {
-
-	return 0;
-}
-
-/*static int ramdisk_fsyncdir(const char* path, int isdatasync,
-		struct fuse_file_info* fi) {
-	printf("MKD-fsyncdir\n");
-	return 0;
-}
-
-static int ramdisk_lock(const char* path, struct fuse_file_info* fi, int cmd,
-		struct flock* locks) {
-	printf("MKD-lock\n");
-	return 0;
-}
-
-static int ramdisk_bmap(const char* path, size_t blocksize, uint64_t* blockno) {
-	printf("MKD-bmap\n");
-	return 0;
-}
-
-static int ramdisk_ioctl(const char* path, int cmd, void* arg,
-		struct fuse_file_info* fi, unsigned int flags, void* data) {
-	printf("MKD-ioctl\n");
-	return 0;
-}
-
-static int ramdisk_poll(const char* path, struct fuse_file_info* fi,
-		struct fuse_pollhandle* ph, unsigned* reventsp) {
-	printf("MKD-poll\n");
-	return 0;
-}
-*/
-
-
-
-
 
 
 static int ramdisk_opendir(const char *path, struct fuse_file_info * fi) {

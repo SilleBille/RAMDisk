@@ -28,22 +28,6 @@ void printLog(int fd, const char *msg) {
 	write(fd, msg, strlen(msg));
 }
 
-/*void addMemBlock(memBlock *head, memBlock *block) {
-	block->next = NULL;
-	if(head == NULL) {
-		head = block;
-	} else {
-		memBlock *temp = head;
-		while(temp->next != NULL) {
-			printf("Containts : %d\n", strlen(temp->data));
-
-			temp = temp->next;
-		}
-		temp->next = block;
-	}
-	printf("-------------\n");
-}*/
-
 ramNode* searchNode(ramNode *head, const char *name) {
 	ramNode *temp = head;
 	while (temp != NULL && strcmp(name, temp->name) != 0)
@@ -63,17 +47,6 @@ void printNodes(ramNode *head) {
 	}
 }
 
-/*int computeSize(memBlock *mHead) {
-	memBlock *t = mHead;
-	int sizeOfFile = 0;
-	while (t != NULL) {
-		sizeOfFile += strlen(t->data);
-		t = t->next;
-	}
-	printf("Size is: %d\n", sizeOfFile);
-	return sizeOfFile;
-}*/
-
 int deleteNode(ramNode *head, const char *path) {
 	ramNode *temp = head;
 	ramNode *prev = temp;
@@ -89,7 +62,6 @@ int deleteNode(ramNode *head, const char *path) {
 		if (strcmp(dirName, path) == 0)
 			return -ENOTEMPTY;
 		else if(strcmp(temp->name, path) == 0 ) {
-			printf("deleting %s\n", temp->name);
 			foundTemp = temp;
 			foundPrev = prev;
 		}
@@ -113,7 +85,6 @@ int deleteFile(ramNode *head, const char *path) {
 
 		// Check whether it has any children, If so, throw an error
 		if(strcmp(temp->name, path) == 0 ) {
-			printf("deleting %s\n", temp->name);
 			foundTemp = temp;
 			foundPrev = prev;
 		}
