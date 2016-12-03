@@ -11,6 +11,6 @@ Instructions to run the FS
 make clean
 make
 
-./ramdisk <mount point> <size in MB> [<file name>]
+./ramdisk < mount point > < size in MB > [< file name >]
 
-Here <mount point> and <size in MB> are mandatory. File name is the file where the files and folders in the RAMdisk are dumped into and read when remounted.
+Here < mount point > and < size in MB > are mandatory. File name is the file where the files and folders in the RAMdisk are dumped into and read when remounted.
